@@ -6,13 +6,19 @@ include('./dao/database.php');
 $search = isset($_GET['search']) ? $_GET['search'] : '';
 $searchType = isset($_GET['search-type']) ? $_GET['search-type'] : '';
 
-// SQL query
-$sql = "SELECT * FROM recipes";
-if ($search != '' && $searchType != '') {
-    $sql .= " WHERE $searchType LIKE '%$search%'";
-}
+// Only these columns can be searched; anything else is ignored.
+$allowedSearchTypes = ['title', 'ingredients', 'cuisine', 'dietary_preference'];
 
-$result = $conn->query($sql);
+if ($search != '' && in_array($searchType, $allowedSearchTypes, true)) {
+    // The column name comes from the whitelist above; the search text is bound as a parameter.
+    $stmt = $conn->prepare("SELECT * FROM recipes WHERE $searchType LIKE ?");
+    $like = '%' . $search . '%';
+    $stmt->bind_param("s", $like);
+    $stmt->execute();
+    $result = $stmt->get_result();
+} else {
+    $result = $conn->query("SELECT * FROM recipes");
+}
 
 if (!$result) {
     die("Query failed: " . $conn->error);
